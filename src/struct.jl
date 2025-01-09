@@ -12,10 +12,10 @@ function SwapMatrixPair(x::AbstractMatrix, xko::AbstractMatrix, groups::Abstract
 
     # find indices that should be swapped together
     swapped_idx = bitrand(n, p)
-    for g in unique_groups
+    @inbounds for g in unique_groups
         for j in 1:p
             if j != g && g == groups[j]
-                swapped_idx[:, j] .= swapped_idx[:, g]
+                swapped_idx[:, j] .= @view(swapped_idx[:, g])
             end
         end
     end
@@ -26,10 +26,10 @@ function SwapMatrixPair(x::AbstractMatrix, xko::AbstractMatrix, groups::Abstract
 end
 
 """
-    swap(x::AbstractMatrix, xko::AbstractMatrix, groups::AbstractVector{Int})
+    swap!(data::SwapMatrixPair)
 
 For each sample, randomly swaps the original variable with its knockoffs with 
-probability 50%. If a variable within a group a swapped, all variables within
+probability 50%. If a variable within a group is swapped, all variables within
 that group must be swapped as well. 
 """
 function swap!(data::SwapMatrixPair)
