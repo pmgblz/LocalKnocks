@@ -1,3 +1,44 @@
+"""
+A `GWASData` is a struct that holds all data
+
++ `x` is the entire PLINK file, containing all SNPs (.bed) files and their 
+    summary statistics. 
++ `y` is the response
++ `z` is the non-genetic covariates.  
+"""
+struct GWASData{T<:AbstractFloat}
+    x::SnpData
+    y::Vector{T}
+    z::Matrix{T}
+    n::Int # sample size
+    p::Int # number of SNPs
+end
+
+function GWASData(x::SnpData, y::Vector{T}, z::VecOrMat{T}) where T
+    n, p = size(x)
+    n == length(y) && n == size(z, 1) || error("Dimension mismatch")
+    return GWASData(x, y, z, n, p)
+end
+
+struct GroupKnockoff{T<:AbstractFloat}
+    y::Vector{T} # response
+    z::Matrix{T} # non-genetic covariates
+    x::Matrix{T} # genetic covariates (within 1 window)
+    xko::Matrix{T} # knockoffs of x
+end
+
+function GroupKnockoff(
+        x::Matrix{T}, 
+        y::AbstractVector{T}, 
+        z::AbstractVecOrMat{T}
+    ) where T
+    groups = hc_partition_groups(x, cutoff = 0.5)
+    mu = mean(x, dims=1) |> vec
+    sigma = cor(x)
+    ko = modelX_gaussian_rep_group_knockoffs(x, :maxent, groups, mu, sigma, m=1)
+    return GroupKnockoff(y, z, x, ko.Xko)
+end
+
 struct SwapMatrixPair{T<:AbstractFloat}
     x::Matrix{T}
     xko::Matrix{T}
