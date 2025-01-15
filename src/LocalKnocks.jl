@@ -5,8 +5,9 @@ using Knockoffs
 using StatsBase
 using Random
 using GLMNet
+using ProgressMeter
 
-include("fit.jl")
 include("struct.jl")
+include("fit.jl")
 
 end

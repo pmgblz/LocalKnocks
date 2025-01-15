@@ -69,7 +69,8 @@ function estimate_lambdas(data::GWASData; kappa_lasso = 0.6, m::Int = 1)
     yscaled = zscore(y)
     z = Transpose(xla) * yscaled ./ sqrt(N)
 
-    # get lambda sequence following 
+    # get lambda sequence following Zhaomeng's paper in sec 4.2.2:
+    # https://pmc.ncbi.nlm.nih.gov/articles/PMC10925382/ 
     lambdamax = maximum(abs, z) / sqrt(N)
     lambdamin = 0.0001lambdamax
     lambda_path = exp.(range(log(lambdamin), log(lambdamax), length=100)) |> reverse!
