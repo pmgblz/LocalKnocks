@@ -25,6 +25,7 @@ struct GroupKnockoff{T<:AbstractFloat}
     z::Matrix{T} # non-genetic covariates
     x::Matrix{T} # genetic covariates (within 1 window)
     xko::Matrix{T} # knockoffs of x
+    groups::Vector{Int} # group membership
 end
 
 function GroupKnockoff(
@@ -36,7 +37,7 @@ function GroupKnockoff(
     mu = mean(x, dims=1) |> vec
     sigma = cor(x)
     ko = modelX_gaussian_rep_group_knockoffs(x, :maxent, groups, mu, sigma, m=1)
-    return GroupKnockoff(y, z, x, ko.Xko)
+    return GroupKnockoff(y, z, x, ko.Xko, groups)
 end
 
 struct SwapMatrixPair{T<:AbstractFloat}
