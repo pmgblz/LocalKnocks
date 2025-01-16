@@ -14,11 +14,11 @@ Does GWAS for all SNPs window-by-window, assuming windows are independent.
 function gwas(
         data::GWASData; 
         window_width::Int=1000, 
-        m::Int = 1
+        m::Int = 1,
+        lambdas::Vector{Float64} = estimate_lambdas(data)
     )
     # create windows
     windows = div(data.p, window_width)
-    lambdas = estimate_lambdas(data)
     betas = Float64[]
     groups = String[]
 
