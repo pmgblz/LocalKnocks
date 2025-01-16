@@ -69,7 +69,7 @@ function fit(data::GroupKnockoff, lambdas::Vector{T}) where T
     Xfull = hcat(data.x, data.xko)
 
     # lasso
-    path = glmnet(Xfull, y, lambda = lambdas)
+    path = glmnet(Xfull, data.y, lambda = lambdas)
     beta = path.betas[:, end]
 
     return beta
