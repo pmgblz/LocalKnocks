@@ -66,7 +66,7 @@ function estimate_lambdas(data::GWASData; kappa_lasso = 0.6, m::Int = 1)
 
     # compute Z-scores
     xla = SnpLinAlg{Float64}(data.x.snparray, impute=true, center=true, scale=true)
-    yscaled = zscore(y)
+    yscaled = zscore(data.y)
     z = Transpose(xla) * yscaled ./ sqrt(N)
 
     # get lambda sequence following Zhaomeng's paper in sec 4.2.2:
