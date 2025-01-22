@@ -143,7 +143,10 @@ function assemble_result(
     )
     df = copy(data.x.snp_info)
     df[!, "qvalues"] = qvalues
-    df[!, "groups"] = groups
+
+    # also save group membership (remember to filter out knockoff variables)
+    df[!, "groups"] = groups[findall(x -> endswith(x, "_0"), groups)]
+
     return df
 end
 
