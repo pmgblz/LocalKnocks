@@ -47,7 +47,7 @@ function gwas(
     @assert length(betas) == length(groups) "Beta and group vector length differs!"
 
     # knockoff filter
-    qvalues = filter(betas, groups)
+    qvalues = filter(betas, groups, m)
 
     # assemble dataframe to return
     df = assemble_result(data, qvalues, groups)
@@ -116,13 +116,13 @@ function estimate_lambdas(data::GWASData; kappa_lasso = 0.6, m::Int = 1)
 end
 
 """
-    filter(beta::AbstractVector, groups::AbstractVector)
+    filter(beta::AbstractVector, groups::AbstractVector, m::Int)
 
 Performs (within-group) knockoff filter. The `beta` vector is assumed to have
 estimated effect sizes for both the original variable and the knockoff variables. 
 Variables are distinguished based on `groups` vector, where 
 """
-function filter(beta::AbstractVector, groups::AbstractVector)
+function filter(beta::AbstractVector, groups::AbstractVector, m::Int)
     original_idx = findall(x -> endswith(x, "_0"), groups)
     T0 = beta[original_idx]
     Tk = [beta[findall(x -> endswith(x, "_$k"), groups)] for k in 1:m]
