@@ -190,3 +190,45 @@ function get_knockoff_qvalue(κ::AbstractVector, τ::AbstractVector, m::Int;
     end
     return qvalues
 end
+
+"""
+    estimate_sigma(X::AbstractMatrix; [enforce_psd=true], [min_eigval=1e-5])
+    estimate_sigma(X::AbstractMatrix, C::AbstractMatrix; [enforce_psd=true],
+        [min_eigval=1e-5])
+
+Estimate LD matrices from data `X`, accounting for covariates `C` if there are any. 
+We adopt the method for Pan-UKB described in 
+`https://pan-dev.ukbb.broadinstitute.org/docs/ld/index.html#ld-matrices`.
+If `enforce_psd=true`, then the correlation matrix will be scaled so that the 
+minimum eigenvalue is `min_eigval`.
+
+Code source: 
+https://github.com/biona001/GhostKnockoffGWAS/blob/main/src/make_hdf5.jl
+"""
+function estimate_sigma(X::AbstractMatrix, C::AbstractMatrix;
+    enforce_psd::Bool=true, min_eigval::Float64 = 1e-5)
+    # check for errors
+    n = size(X, 1)
+    n == size(C, 1) || error("Sample size in X and C should be the same")
+
+    # pan-ukb routine
+    Xc = StatsBase.zscore(X, mean(X, dims=1), std(X, dims=1))
+    if size(C, 2) > 1
+        Xc .-= C * inv(Symmetric(C' * C)) * (C' * Xc)
+    end
+    Sigma = Xc' * Xc / n
+
+    # numerical stability
+    if enforce_psd
+        evals, evecs = eigen(Sigma)
+        evals[findall(x -> x < min_eigval, evals)] .= min_eigval
+        Sigma = evecs * Diagonal(evals) * evecs'
+    end
+
+    # scale to correlation matrix
+    StatsBase.cov2cor!(Sigma, sqrt.(diag(Sigma)))
+
+    return Sigma
+end
+estimate_sigma(X; enforce_psd::Bool=true, min_eigval::Float64 = 1e-5) = 
+    estimate_sigma(X, zeros(size(X, 1), 0); enforce_psd=enforce_psd, min_eigval=min_eigval)

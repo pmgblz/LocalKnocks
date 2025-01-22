@@ -35,7 +35,7 @@ function GroupKnockoff(
     ) where T
     groups = hc_partition_groups(x, cutoff = 0.5)
     mu = mean(x, dims=1) |> vec
-    sigma = cor(x)
+    sigma = estimate_sigma(x)
     ko = modelX_gaussian_rep_group_knockoffs(x, :maxent, groups, mu, sigma, m=1)
     return GroupKnockoff(y, z, x, ko.Xko, groups)
 end
