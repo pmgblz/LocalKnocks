@@ -28,31 +28,57 @@ struct GroupKnockoff{T<:AbstractFloat}
     groups::Vector{Int} # group membership
 end
 
+"""
+    run_group_knockoffs(x::Matrix{T})
+
+Given inidivual level data in `x`, run standard group knockoff algorithm.
+"""
+function run_group_knockoffs(x::Matrix{T}; seed::Int = 2025)
+    groups = hc_partition_groups(x, cutoff = 0.5)
+    mu = mean(x, dims=1) |> vec
+    sigma = estimate_sigma(x)
+
+    # set seed to ensure knockoffs generated are reproducible
+    Random.seed!(seed)
+    ko = modelX_gaussian_rep_group_knockoffs(x, :maxent, groups, mu, sigma, m=1)
+    xko = ko.Xko
+
+    return xko, groups
+end
+
 function GroupKnockoff(
         x::Matrix{T}, 
         y::AbstractVector{T}, 
         z::AbstractVecOrMat{T}
     ) where T
-    groups = hc_partition_groups(x, cutoff = 0.5)
-    mu = mean(x, dims=1) |> vec
-    sigma = estimate_sigma(x)
-    ko = modelX_gaussian_rep_group_knockoffs(x, :maxent, groups, mu, sigma, m=1)
-    return GroupKnockoff(y, z, x, ko.Xko, groups)
+    xko, groups = run_group_knockoffs(x)
+    return GroupKnockoff(y, z, x, xko, groups)
 end
 
-struct SwapMatrixPair{T<:AbstractFloat}
+struct CloakedGroupKnockoff{T<:AbstractFloat}
+    y::Vector{T} # response
+    z::Matrix{T} # non-genetic covariates
     x::Matrix{T}
     xko::Matrix{T}
+    groups::Vector{Int} # group membership
     swap_idx::BitMatrix
     is_swapped::Vector{Bool}
 end
 
-function SwapMatrixPair(x::AbstractMatrix, xko::AbstractMatrix, groups::AbstractVector{Int})
+function CloakedGroupKnockoff(
+        x::Matrix{T}, 
+        y::AbstractVector{T}, 
+        z::AbstractVecOrMat{T};
+        seed::Int = 2025
+    )
     n, p = size(x)
     n != size(xko, 1) || p != size(xko, 2) && error("Dimension mismatch")
-    unique_groups = unique(groups)
+
+    # construct group knockoffs
+    xko, groups = run_group_knockoffs(x, seed = seed)
 
     # find indices that should be swapped together
+    unique_groups = unique(groups)
     swapped_idx = bitrand(n, p)
     @inbounds for g in unique_groups
         for j in 1:p
@@ -64,17 +90,17 @@ function SwapMatrixPair(x::AbstractMatrix, xko::AbstractMatrix, groups::Abstract
 
     is_swapped = [false]
 
-    return SwapMatrixPair(x, xko, swapped_idx, is_swapped)
+    return CloakedGroupKnockoff(y, z, x, xko, groups, swapped_idx, is_swapped)
 end
 
 """
-    swap!(data::SwapMatrixPair)
+    swap!(data::CloakedGroupKnockoff)
 
 For each sample, randomly swaps the original variable with its knockoffs with 
 probability 50%. If a variable within a group is swapped, all variables within
 that group must be swapped as well. 
 """
-function swap!(data::SwapMatrixPair)
+function swap!(data::CloakedGroupKnockoff)
     x, xko, idx = data.x, data.xko, data.swap_idx
     n, p = size(idx)
     @inbounds for j in 1:p
