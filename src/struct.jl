@@ -33,7 +33,7 @@ end
 
 Given inidivual level data in `x`, run standard group knockoff algorithm.
 """
-function run_group_knockoffs(x::Matrix{T}; seed::Int = 2025)
+function run_group_knockoffs(x::Matrix{T}; seed::Int = 2025) where T
     groups = hc_partition_groups(x, cutoff = 0.5)
     mu = mean(x, dims=1) |> vec
     sigma = estimate_sigma(x)
@@ -70,9 +70,8 @@ function CloakedGroupKnockoff(
         y::AbstractVector{T}, 
         z::AbstractVecOrMat{T};
         seed::Int = 2025
-    )
+    ) where T
     n, p = size(x)
-    n != size(xko, 1) || p != size(xko, 2) && error("Dimension mismatch")
 
     # construct group knockoffs
     xko, groups = run_group_knockoffs(x, seed = seed)

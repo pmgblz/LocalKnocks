@@ -10,5 +10,6 @@ using LinearAlgebra
 
 include("struct.jl")
 include("fit.jl")
+include("fit_cloak.jl")
 
 end

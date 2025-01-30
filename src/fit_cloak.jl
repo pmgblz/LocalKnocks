@@ -20,10 +20,8 @@ function screen(
         data::GWASData, 
         lambdas::Vector{Float64};
         window_width::Int = 1000, 
-        m::Int = 1
     )
     # create windows
-    p = data.p
     windows = div(data.p, window_width)
     betas = Float64[]
     nonzero_idx = Int[] # length 2p
@@ -40,7 +38,7 @@ function screen(
         beta_w = fit(data_w, lambdas)
         append!(betas, beta_w)
 
-        # screen step
+        # screen step (SNP-by-SNP, i.e. ignoring groups)
         p_window = length(idx)
         for j in 1:p_window
             if beta_w[j] != 0 || beta_w[j + p_window] != 0
