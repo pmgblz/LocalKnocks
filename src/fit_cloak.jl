@@ -35,7 +35,7 @@ function screen(
         # initialize data structure and fit
         data_w = initialize_cloaked_data(data, idx)
         swap!(data_w)
-        beta_w = fit(data_w, lambdas)
+        beta_w = prefit(data_w, lambdas)
         append!(betas, beta_w)
 
         # screen step (SNP-by-SNP, i.e. ignoring groups)
@@ -63,4 +63,15 @@ function initialize_cloaked_data(data::GWASData, snp_indices::AbstractRange{Int}
     zscore!(xfloat, mean(xfloat, dims=1), std(xfloat, dims=1))
 
     return CloakedGroupKnockoff(xfloat, data.y, data.z)
+end
+
+function prefit(data::CloakedGroupKnockoff, lambdas::Vector{T}) where T
+    # form design matrix, see TODO
+    Xfull = hcat(data.x, data.xko)
+
+    # lasso
+    path = glmnet(Xfull, data.y, lambda = lambdas)
+    beta = path.betas[:, end]
+
+    return beta
 end
