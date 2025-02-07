@@ -67,11 +67,12 @@ end
 
 function prefit(data::CloakedGroupKnockoff, lambdas::Vector{T}) where T
     # form design matrix, see TODO
-    Xfull = hcat(data.x, data.xko)
+    Xfull = hcat(data.x, data.xko, data.z)
 
     # lasso
     path = glmnet(Xfull, data.y, lambda = lambdas)
     beta = path.betas[:, end]
 
-    return beta
+    p = data.p
+    return beta[1:2p]
 end
