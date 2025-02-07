@@ -103,16 +103,18 @@ function estimate_lambdas(data::GWASData; kappa_lasso = 0.6, m::Int = 1)
     # compute Z-scores
     xla = SnpLinAlg{Float64}(data.x.snparray, impute=true, center=true, scale=true)
     yscaled = zscore(data.y)
-    z = Transpose(xla) * yscaled ./ sqrt(N)
+    zscore = Transpose(xla) * yscaled ./ sqrt(N)
+    return estimate_lambdas(zscore, kappa_lasso=kappa_lasso, m=m)
+end
 
+function estimate_lambdas(zscore::AbstractVector; kappa_lasso = 0.6, m::Int = 1)
     # get lambda sequence following Zhaomeng's paper in sec 4.2.2:
     # https://pmc.ncbi.nlm.nih.gov/articles/PMC10925382/ 
-    lambdamax = maximum(abs, z) / sqrt(N)
+    lambdamax = maximum(abs, zscore) / sqrt(N)
     lambdamin = 0.0001lambdamax
     lambda_path = exp.(range(log(lambdamin), log(lambdamax), length=100)) |> reverse!
     lambda = kappa_lasso * maximum(abs, randn((m+1)*nsnps)) / sqrt(N)
     lambda_path = vcat(lambda_path[findall(x -> x > lambda, lambda_path)], lambda)
-
     return lambda_path
 end
 
