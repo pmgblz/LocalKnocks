@@ -80,10 +80,10 @@ function CloakedGroupKnockoff(
     unique_groups = unique(groups)
     swapped_idx = bitrand(n, p)
     @inbounds for g in unique_groups
-        for j in 1:p
-            if j != g && g == groups[j]
-                swapped_idx[:, j] .= @view(swapped_idx[:, g])
-            end
+        # find indices of all groups that are the same as g
+        vec = bitrand(n)
+        for j in findall(x -> x == g, groups)
+            swapped_idx[:, j] .= vec
         end
     end
 
