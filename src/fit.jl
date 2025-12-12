@@ -98,16 +98,16 @@ in `gwas` function.
 """
 function estimate_lambdas(data::GWASData; kappa_lasso = 0.6, m::Int = 1)
     N = data.n
-    nsnps = data.p
 
     # compute Z-scores
     xla = SnpLinAlg{Float64}(data.x.snparray, impute=true, center=true, scale=true)
     yscaled = zscore(data.y)
-    zscore = Transpose(xla) * yscaled ./ sqrt(N)
-    return estimate_lambdas(zscore, kappa_lasso=kappa_lasso, m=m)
+    z = Transpose(xla) * yscaled ./ sqrt(N)
+    return estimate_lambdas(z, N, kappa_lasso=kappa_lasso, m=m)
 end
 
-function estimate_lambdas(zscore::AbstractVector; kappa_lasso = 0.6, m::Int = 1)
+function estimate_lambdas(zscore::AbstractVector, N::Int; kappa_lasso = 0.6, m::Int = 1)
+    nsnps = length(zscore)
     # get lambda sequence following Zhaomeng's paper in sec 4.2.2:
     # https://pmc.ncbi.nlm.nih.gov/articles/PMC10925382/ 
     lambdamax = maximum(abs, zscore) / sqrt(N)

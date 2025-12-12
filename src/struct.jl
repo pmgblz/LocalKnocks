@@ -61,8 +61,8 @@ struct CloakedGroupKnockoff{T<:AbstractFloat}
     x::Matrix{T}
     xko::Matrix{T}
     groups::Vector{Int} # group membership
-    swap_idx::BitMatrix
-    is_swapped::Vector{Bool}
+    swap_idx::BitMatrix # n by p
+    is_swapped::Vector{Bool} # true or false
 end
 
 function CloakedGroupKnockoff(

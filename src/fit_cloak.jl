@@ -5,9 +5,14 @@ window-by-window basis, see Algorithm A3 in Gablenz et al (2024).
 
 # pseudo-code
 # for window in windows:
-#   1. screen SNPs
-#   2. fit lasso with interaction
-#   3. 
+#   1. cloaking
+#   2. screen SNPs
+#   3. fit lasso with interaction
+#   4. for all covariates, find which SNPs are interacting with it
+#   5. run Lasso within each covariate environment
+#      5.1. reveal identities of interacting SNPs
+#      5.2. get Ws for each of these
+#   6. perform knockoff filter
 """
 function gwaw_adaptive(
         data::GWASData,
@@ -22,10 +27,14 @@ function gwaw_adaptive(
     betas = Float64[]
     nonzero_idx = Int[] # length 2p
     for window in 1:windows
-        # screen SNPs in current window
+        # create CloakedGroupKnockoff: internally is dense matrices and vectors
         window_start = (window - 1) * window_width + 1
         window_end = window == windows ? data.p : window * window_width
-        nonzero_idx = screen(data, lambdas, window_start, window_end)
+        data_w = initialize_cloaked_data(data, window_start:window_end)
+        swap!(data_w)
+
+        # screen SNPs in current window
+        nonzero_idx = screen(data_w, lambdas)
 
         # fit lasso with interaction
         lasso_with_interaction(data, )
@@ -59,29 +68,23 @@ function lasso_with_interaction(
     # interaction = Dict{Int, Vector{Int}}()
 end
 
-function screen(
-        data::GWASData, 
-        lambdas::Vector{Float64},
-        window_start::Int,
-        window_end::Int
-    )
-    snp_idx = window_start:window_end
+"""
+    screen(data_w::CloakedGroupKnockoff, lambdas::Vector{Float64})
 
-    # initialize data structure and fit
-    data_w = initialize_cloaked_data(data, snp_idx)
-    swap!(data_w)
+Screens SNPs in the current window. If either the original or knockoff SNP is 
+non-zero, we keep the index of the original SNP (1 through p).
+"""
+function screen(
+        data_w::CloakedGroupKnockoff, 
+        lambdas::Vector{Float64}
+    )
     beta_w = prefit(data_w, lambdas)
+    p = length(beta_w) >> 1
 
     # screen step (SNP-by-SNP, i.e. ignoring groups)
-    p_window = length(snp_idx)
-    nonzero_idx = Int[]
-    for j in 1:p_window
-        if beta_w[j] != 0 || beta_w[j + p_window] != 0
-            push!(nonzero_idx, j + window_start - 1)
-            push!(nonzero_idx, j + window_start - 1 + p_window)
-        end
-    end
-
+    nonzero_idx1 = findall(!iszero, beta_w[1:p])
+    nonzero_idx2 = findall(!iszero, beta_w[p+1:2p])
+    nonzero_idx = union(nonzero_idx1, nonzero_idx2)
     return nonzero_idx
 end
 
@@ -95,20 +98,23 @@ function initialize_cloaked_data(data::GWASData, snp_indices::AbstractRange{Int}
     # convert to numeric matrix and scale columns to mean 0 var 1
     xfloat = convert(Matrix{Float64}, @view(data.x.snparray[:, snp_indices]), impute=true)
     zscore!(xfloat, mean(xfloat, dims=1), std(xfloat, dims=1))
-
     return CloakedGroupKnockoff(xfloat, data.y, data.z)
 end
 
+"""
+    prefit(data::CloakedGroupKnockoff, lambdas::Vector{T}) where T
+"""
 function prefit(data::CloakedGroupKnockoff, lambdas::Vector{T}) where T
-    # form design matrix, see TODO
+    # form design matrix
     Xfull = hcat(data.x, data.xko, data.z)
 
     # lasso
     path = glmnet(Xfull, data.y, lambda = lambdas)
     beta = path.betas[:, end]
 
-    p = data.p
-    return beta[1:2p]
+    p1 = size(data.x, 2)
+    p2 = size(data.xko, 2)
+    return beta[1:(p1 + p2)] # get beta for SNPs only
 end
 
 """
