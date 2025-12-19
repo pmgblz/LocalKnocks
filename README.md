@@ -10,3 +10,9 @@ Download and install Julia. Within Julia, run:
 using Pkg
 Pkg.add(url="https://github.com/pmgblz/LocalKnocks")
 ```
+
+## Progress report
+
+- [ ] Make it work
+- [ ] Make it right
+- [ ] Make it fast
