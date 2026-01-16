@@ -8,12 +8,19 @@ current implementation only supports interaction on binary covariates.
 for window in windows:
   1. cloaking
   2. screen SNPs
-  3. fit lasso with interaction (TODO: the lambdas here should they be the same as step 2)
+  3. fit lasso with interaction
   4. for all covariates, find which SNPs are interacting with it
+     4.1: TODO: check the code works if we have >1 interaction variable
   5. run Lasso within each covariate environment
      5.1. reveal identities of interacting SNPs
      5.2. get Ws for each of these
   6. perform knockoff filter
+
+# TODO (lambdas)
+I think the lambda vector only needs to be used in step 5, where we use it to get the Ws
+for different windows, because only there do we need to make sure the SNPs are penalized
+equally across the windows. Lassos in earlier steps are more like screening so they can 
+be penalized in other ways (e.g. cross validation)
 """
 function gwaw_adaptive(
         data::GWASData,
@@ -41,9 +48,26 @@ function gwaw_adaptive(
         # interaction[i] is a Vector{Int} containing variables interacting with zi
         interaction = lasso_with_interaction(data_w, interaction_idx, 
                                              screened_snps, lambdas)
-        
+
+        # run Lasso within each covariate environment
+        # See Figure A3 (the 2nd big column) in https://arxiv.org/pdf/2412.02182
+        for idx in interaction_idx
+            # uncloak all the interct vars
+            interacting_snps = interaction[idx]
+            unswap!(data_w, interacting_snps)
+
+            # subset to males/females and fit lasso
+            zi = data_w.z[:, idx]
+            for elem in unique(zi)
+                rows = findall(x -> x == elem, zi)
+                Ws = local_env_lasso(data_w, lambdas, rows, interacting_snps)
+            end
+
+            swap!(...)
+        end
     end
 end
+
 
 """
 Fits Lasso with interaction for all SNPs in `data_w`, returns a variable `interaction`
@@ -87,7 +111,9 @@ function lasso_with_interaction(
         non0_idx2 = findall(!iszero, beta[(offseti + offset2 + 1):(offseti + offset2 + p2)])
         non0_idx3 = findall(!iszero, beta[(offseti + offset3 + 1):(offseti + offset3 + p1)])
         non0_idx4 = findall(!iszero, beta[(offseti + offset4 + 1):(offseti + offset4 + p2)])
-        interaction[i] = union(non0_idx1, non0_idx2, non0_idx3, non0_idx4)
+        
+        var = interaction_idx[i]
+        interaction[var] = union(non0_idx1, non0_idx2, non0_idx3, non0_idx4)
     end
 
     return interaction
@@ -140,6 +166,29 @@ function prefit(data::CloakedGroupKnockoff, lambdas::Vector{T}) where T
     p1 = size(data.x, 2)
     p2 = size(data.xko, 2)
     return beta[1:(p1 + p2)] # get beta for SNPs only
+end
+
+"""
+
+This is the "local predictive model" (Figure A3 in Gablenz et al 2024) that 
+computes Ws across all environments. 
+"""
+function local_env_lasso(data_w::CloakedGroupKnockoff, lambdas::Vector{T}, 
+        rows::Vector{Int}, interacting_snps::Vector{Int}
+    ) where T
+    p1 = size(data_w.x, 2)
+    p2 = size(data_w.xko, 2)
+    # these data have been "uncloaked"
+    Xfull = @views hcat(data_w.x[rows, :], data_w.xko[rows, :], data_w.z[rows, :])
+    # lasso
+    path = glmnet(Xfull, data_w.y[rows], lambda = lambdas)
+    beta = path.betas[:, end][1:(p1 + p2)] # discard beta for covariates
+    # get Ws for groups
+    groups = data_w.groups
+
+    # knockoff filter
+
+
 end
 
 """

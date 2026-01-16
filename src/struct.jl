@@ -62,7 +62,6 @@ struct CloakedGroupKnockoff{T<:AbstractFloat}
     xko::Matrix{T}
     groups::Vector{Int} # group membership
     swap_idx::BitMatrix # n by p
-    is_swapped::Vector{Bool} # true or false
 end
 
 function CloakedGroupKnockoff(
@@ -86,10 +85,7 @@ function CloakedGroupKnockoff(
             swapped_idx[:, j] .= vec
         end
     end
-
-    is_swapped = [false]
-
-    return CloakedGroupKnockoff(y, z, x, xko, groups, swapped_idx, is_swapped)
+    return CloakedGroupKnockoff(y, z, x, xko, groups, swapped_idx)
 end
 
 """
@@ -100,15 +96,36 @@ probability 50%. If a variable within a group is swapped, all variables within
 that group must be swapped as well. 
 """
 function swap!(data::CloakedGroupKnockoff)
-    x, xko, idx = data.x, data.xko, data.swap_idx
-    n, p = size(idx)
+    x, xko, swap_idx = data.x, data.xko, data.swap_idx
+    n, p = size(swap_idx)
     @inbounds for j in 1:p
         @simd for i in 1:n
-            if idx[i, j]
+            if swap_idx[i, j]
                 x[i, j], xko[i, j] = xko[i, j], x[i, j]
             end
         end
     end
-    data.is_swapped[1] = !data.is_swapped[1]
     return nothing
+end
+
+# restores real X/Xko identity in 1 local environment blockj
+function unswap!(data::CloakedGroupKnockoff, interaction_snps::Vector{Int})
+    x, xko, groups, swap_idx = data.x, data.xko, data.groups, data.swap_idx
+    n, p = size(swap_idx)
+    for snp in interaction_snps
+        snps = findall(x -> x == groups[snp], groups)
+        for j in snps
+            for i in 1:n
+                if swap_idx[i, j]
+                    x[i, j], xko[i, j] = xko[i, j], x[i, j]
+                end
+            end
+        end
+    end
+    return nothing
+end
+
+# this is ran after we are finished with 1 local environment blockj
+function swap!(data::CloakedGroupKnockoff, interaction_snps::Vector{Int})
+    unswap!(data, interaction_snps)
 end
