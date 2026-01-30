@@ -32,8 +32,9 @@ function gwaw_adaptive(
 
     # create windows
     windows = div(data.p, window_width)
-    betas = Float64[]
+    Ws = Vector{Float64}[]
     nonzero_idx = Int[] # length 2p
+    W = Float64[]
     for window in 1:windows
         # create CloakedGroupKnockoff: internally is dense matrices and vectors
         window_start = (window - 1) * window_width + 1
@@ -60,10 +61,11 @@ function gwaw_adaptive(
             zi = data_w.z[:, idx]
             for elem in unique(zi)
                 rows = findall(x -> x == elem, zi)
-                Ws = local_env_lasso(data_w, lambdas, rows, interacting_snps)
+                W_j = local_env_lasso(data_w, lambdas, rows, interacting_snps)
+                append!(W, W_j)
             end
 
-            swap!(...)
+            # swap!(...)
         end
     end
 end
@@ -171,7 +173,8 @@ end
 """
 
 This is the "local predictive model" (Figure A3 in Gablenz et al 2024) that 
-computes Ws across all environments. 
+computes Ws across all environments. Note the Ws here are of length `interacting_snps`
+(i.e. we only care about the beta for the interacting SNPs).
 """
 function local_env_lasso(data_w::CloakedGroupKnockoff, lambdas::Vector{T}, 
         rows::Vector{Int}, interacting_snps::Vector{Int}
@@ -183,12 +186,18 @@ function local_env_lasso(data_w::CloakedGroupKnockoff, lambdas::Vector{T},
     # lasso
     path = glmnet(Xfull, data_w.y[rows], lambda = lambdas)
     beta = path.betas[:, end][1:(p1 + p2)] # discard beta for covariates
-    # get Ws for groups
+    # W (with groups)
     groups = data_w.groups
-
-    # knockoff filter
-
-
+    unique_groups = unique(groups)
+    Wg = Vector{Float64}(undef, length(unique_groups))
+    for (k, g) in enumerate(unique_groups)
+        idx = findall(x -> x == g, groups)
+        Wg[k] = sum(abs, beta[idx]) - sum(abs, beta[idx .+ p1])
+    end
+    # get group Ws for each interacting SNP
+    # W = Dict{Int, Vector{Float64}}()
+    W = Wg[groups[interacting_snps]]
+    return W
 end
 
 """

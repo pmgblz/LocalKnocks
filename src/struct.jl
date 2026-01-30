@@ -64,6 +64,12 @@ struct CloakedGroupKnockoff{T<:AbstractFloat}
     swap_idx::BitMatrix # n by p
 end
 
+struct W
+    W::Vector{T}
+    Wg::Vector{T}
+    # todo: what needs to be here?
+end
+
 function CloakedGroupKnockoff(
         x::Matrix{T}, 
         y::AbstractVector{T}, 
