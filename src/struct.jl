@@ -64,10 +64,14 @@ struct CloakedGroupKnockoff{T<:AbstractFloat}
     swap_idx::BitMatrix # n by p
 end
 
-struct W
-    W::Vector{T}
-    Wg::Vector{T}
-    # todo: what needs to be here?
+"""
+A struct to more easily keep track of Ws (knockoff W statistic) across windows
+"""
+struct W_struct{T<:AbstractFloat}
+    window::Int
+    which_z::Int # e.g. if z[:, 1] is sex and z[:, 9] is sex2, then which_z is 1 or 9
+    subgroup_z::T # e.g. within z[:, 1] (sex), this is male or female (all unique elements of z[:, 1])
+    W::Vector{T} # actual W within this window, which z, and which z subgroup
 end
 
 function CloakedGroupKnockoff(

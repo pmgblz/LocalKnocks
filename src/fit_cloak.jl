@@ -32,9 +32,8 @@ function gwaw_adaptive(
 
     # create windows
     windows = div(data.p, window_width)
-    Ws = Vector{Float64}[]
     nonzero_idx = Int[] # length 2p
-    W = Float64[]
+    Ws = W_struct[]
     for window in 1:windows
         # create CloakedGroupKnockoff: internally is dense matrices and vectors
         window_start = (window - 1) * window_width + 1
@@ -52,20 +51,25 @@ function gwaw_adaptive(
 
         # run Lasso within each covariate environment
         # See Figure A3 (the 2nd big column) in https://arxiv.org/pdf/2412.02182
-        for idx in interaction_idx
+        for which_z in interaction_idx
             # uncloak all the interct vars
-            interacting_snps = interaction[idx]
+            interacting_snps = interaction[which_z]
             unswap!(data_w, interacting_snps)
 
             # subset to males/females and fit lasso
-            zi = data_w.z[:, idx]
-            for elem in unique(zi)
-                rows = findall(x -> x == elem, zi)
+            zi = data_w.z[:, which_z]
+            for subgroup_z in unique(zi)
+                rows = findall(x -> x == subgroup_z, zi)
+                # E.g. If interacting_snps = [17, 35], then in the first iteration,
+                # W[1] ==> This is W_{17}^{sex=male} and W[2] is W_{35}^{sex=male}
                 W_j = local_env_lasso(data_w, lambdas, rows, interacting_snps)
-                append!(W, W_j)
+
+                # put things in a struct to remember them
+                push!(Ws, W(window, which_z, subgroup_z, W_j))
             end
 
-            # swap!(...)
+            # cloak interact vars again
+            unswap!(data_w, interacting_snps)
         end
     end
 end
@@ -195,7 +199,6 @@ function local_env_lasso(data_w::CloakedGroupKnockoff, lambdas::Vector{T},
         Wg[k] = sum(abs, beta[idx]) - sum(abs, beta[idx .+ p1])
     end
     # get group Ws for each interacting SNP
-    # W = Dict{Int, Vector{Float64}}()
     W = Wg[groups[interacting_snps]]
     return W
 end
