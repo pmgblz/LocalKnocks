@@ -72,6 +72,7 @@ struct W_struct{T<:AbstractFloat}
     which_z::Int # e.g. if z[:, 1] is sex and z[:, 9] is sex2, then which_z is 1 or 9
     subgroup_z::T # e.g. within z[:, 1] (sex), this is male or female (all unique elements of z[:, 1])
     W::Vector{T} # actual W within this window, which z, and which z subgroup
+    groups::Vector{Int} # group membership for each W (length(groups) == length(W))
 end
 
 function CloakedGroupKnockoff(

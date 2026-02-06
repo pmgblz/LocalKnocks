@@ -16,6 +16,10 @@ for window in windows:
      5.2. get Ws for each of these
   6. perform knockoff filter
 
+# TODO (add back vars that have main effect but no interactions)
+See `paper/step 5 picture.png`: the X8 and X9 vars need to be dealt
+with, currently it's not 
+
 # TODO (lambdas)
 I think the lambda vector only needs to be used in step 5, where we use it to get the Ws
 for different windows, because only there do we need to make sure the SNPs are penalized
@@ -28,13 +32,12 @@ function gwaw_adaptive(
         window_width::Int = 1000, 
         lambdas::Vector{Float64} = estimate_lambdas(data, kappa_lasso=0.6)
     )
-    size(Zint, 1) == data.n || error("Check dimension")
-
-    # create windows
     windows = div(data.p, window_width)
     nonzero_idx = Int[] # length 2p
     Ws = W_struct[]
-    for window in 1:windows
+
+    # assume each window is independent
+    @showprogress for window in 1:windows
         # create CloakedGroupKnockoff: internally is dense matrices and vectors
         window_start = (window - 1) * window_width + 1
         window_end = window == windows ? data.p : window * window_width
@@ -65,13 +68,17 @@ function gwaw_adaptive(
                 W_j = local_env_lasso(data_w, lambdas, rows, interacting_snps)
 
                 # put things in a struct to remember them
-                push!(Ws, W(window, which_z, subgroup_z, W_j))
+                group = data_w.groups[interacting_snps]
+                push!(Ws, W_struct(window, which_z, subgroup_z, W_j, group))
             end
 
             # cloak interact vars again
             unswap!(data_w, interacting_snps)
         end
     end
+
+    # knockoff filter
+    return Ws
 end
 
 

@@ -8,6 +8,8 @@ using GLMNet
 using ProgressMeter
 using LinearAlgebra
 
+export gwaw_adaptive
+
 include("struct.jl")
 include("fit.jl")
 include("fit_cloak.jl")
