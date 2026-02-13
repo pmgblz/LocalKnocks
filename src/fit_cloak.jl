@@ -29,6 +29,7 @@ be penalized in other ways (e.g. cross validation)
 function gwaw_adaptive(
         data::GWASData,
         interaction_idx::Vector{Int}; # only covariates in here are interacting with SNPs
+        q = 0.1, # target FDR
         window_width::Int = 1000, 
         lambdas::Vector{Float64} = estimate_lambdas(data, kappa_lasso=0.6)
     )
@@ -37,11 +38,15 @@ function gwaw_adaptive(
     Ws = W_struct[]
 
     # assume each window is independent
+    groups_all = Int[]
+    windows_all = Int[]
     @showprogress for window in 1:windows
         # create CloakedGroupKnockoff: internally is dense matrices and vectors
         window_start = (window - 1) * window_width + 1
         window_end = window == windows ? data.p : window * window_width
         data_w = initialize_cloaked_data(data, window_start:window_end)
+        append!(groups_all, data_w.groups)
+        append!(windows_all, [window for _ in window_start:window_end])
         swap!(data_w)
 
         # screen SNPs in current window
@@ -77,8 +82,11 @@ function gwaw_adaptive(
         end
     end
 
+    feature_level_df = DataFrame(window = windows_all, group = groups_all)
+
     # knockoff filter
-    return Ws
+    selected = knockoff_filter(Ws, q)
+    return selected, feature_level_df
 end
 
 

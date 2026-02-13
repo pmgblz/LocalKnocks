@@ -1,9 +1,10 @@
 name = "LocalKnocks"
 uuid = "727d0616-beba-44f6-9cae-7eecc37bb615"
-authors = ["Benjamin Chu <benchu99@hotmail.com>", "Paula Gablenz <paula.gablenz@gmail.com>"]
 version = "0.1.0"
+authors = ["Benjamin Chu <benchu99@hotmail.com>", "Paula Gablenz <paula.gablenz@gmail.com>"]
 
 [deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 GLMNet = "8d5ece8b-de18-5317-b113-243142960cc6"
 Knockoffs = "878bf26d-0c49-448a-9df5-b057c815d613"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -13,6 +14,7 @@ SnpArrays = "4e780e97-f5bf-4111-9dc4-b70aaf691b06"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
+DataFrames = "1.8.1"
 GLMNet = "0.7"
 Knockoffs = "2"
 ProgressMeter = "1.10"

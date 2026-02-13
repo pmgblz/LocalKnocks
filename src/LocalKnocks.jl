@@ -7,6 +7,7 @@ using Random
 using GLMNet
 using ProgressMeter
 using LinearAlgebra
+using DataFrames
 
 export gwaw_adaptive
 

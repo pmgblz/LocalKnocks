@@ -75,6 +75,52 @@ struct W_struct{T<:AbstractFloat}
     groups::Vector{Int} # group membership for each W (length(groups) == length(W))
 end
 
+"""
+A struct to keep track of which group was passes knockoff filter
+"""
+struct W_selected{T<:AbstractFloat}
+    window::Int
+    which_z::Int # e.g. if z[:, 1] is sex and z[:, 9] is sex2, then which_z is 1 or 9
+    subgroup_z::T # e.g. within z[:, 1] (sex), this is male or female (all unique elements of z[:, 1])
+    W::T # actual W
+    group::Int # group membership for this variable
+end
+
+function knockoff_filter(Ws::Vector{LocalKnocks.W_struct}, q::Number)
+    Ws_flat = vcat([W_j.W for W_j in Ws]...)
+    tau = threshold(Ws_flat, q)
+    println("tau = $tau")
+
+    selected = W_selected[]
+    for w_s in Ws
+        for (i, w_val) in enumerate(w_s.W)
+            if w_val >= tau
+                w_selected = W_selected(w_s.window, w_s.which_z, w_s.subgroup_z, w_val,w_s.groups[i])
+                push!(selected, w_selected)
+            end
+        end
+    end
+    
+    return selected
+end
+
+"""
+Pirated from https://github.com/biona001/Knockoffs.jl/blob/master/src/threshold.jl
+"""
+function threshold(w::AbstractVector{T}, q::Number,
+    method=:knockoff_plus, rej_bounds::Int=10000) where T <: AbstractFloat
+    0 <= q <= 1 || error("Target FDR should be between 0 and 1 but got $q")
+    offset = method == :knockoff ? 0 : method == :knockoff_plus ? 1 :
+        error("method should be :knockoff or :knockoff_plus but was $method.")
+    tau = typemax(T)
+    for (i, t) in enumerate(sort!(abs.(w), rev=true)) # t starts from largest |W|
+        ratio = (offset + count(x -> x <= -t, w)) / count(x -> x >= t, w)
+        ratio <= q && t > 0 && (tau = t)
+        i > rej_bounds && break
+    end
+    return tau
+end
+
 function CloakedGroupKnockoff(
         x::Matrix{T}, 
         y::AbstractVector{T}, 
