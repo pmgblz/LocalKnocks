@@ -86,10 +86,10 @@ struct W_selected{T<:AbstractFloat}
     group::Int # group membership for this variable
 end
 
-function knockoff_filter(Ws::Vector{LocalKnocks.W_struct}, q::Number)
+function knockoff_filter(Ws::Vector{LocalKnocks.W_struct}, q::Number; verbose=true)
     Ws_flat = vcat([W_j.W for W_j in Ws]...)
-    tau = threshold(Ws_flat, q)
-    println("tau = $tau")
+    tau = Knockoffs.threshold(Ws_flat, q)
+    verbose && println("tau = $tau")
 
     selected = W_selected[]
     for w_s in Ws
@@ -101,24 +101,7 @@ function knockoff_filter(Ws::Vector{LocalKnocks.W_struct}, q::Number)
         end
     end
     
-    return selected
-end
-
-"""
-Pirated from https://github.com/biona001/Knockoffs.jl/blob/master/src/threshold.jl
-"""
-function threshold(w::AbstractVector{T}, q::Number,
-    method=:knockoff_plus, rej_bounds::Int=10000) where T <: AbstractFloat
-    0 <= q <= 1 || error("Target FDR should be between 0 and 1 but got $q")
-    offset = method == :knockoff ? 0 : method == :knockoff_plus ? 1 :
-        error("method should be :knockoff or :knockoff_plus but was $method.")
-    tau = typemax(T)
-    for (i, t) in enumerate(sort!(abs.(w), rev=true)) # t starts from largest |W|
-        ratio = (offset + count(x -> x <= -t, w)) / count(x -> x >= t, w)
-        ratio <= q && t > 0 && (tau = t)
-        i > rej_bounds && break
-    end
-    return tau
+    return DataFrame(selected)
 end
 
 function CloakedGroupKnockoff(

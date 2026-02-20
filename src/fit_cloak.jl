@@ -82,13 +82,26 @@ function gwaw_adaptive(
         end
     end
 
-    feature_level_df = DataFrame(window = windows_all, group = groups_all)
+    # merge window & group info with SNP info
+    snp_info = data.x.snp_info
+    snp_info[!, :window] = windows_all
+    snp_info[!, :group] = groups_all
 
     # knockoff filter
-    selected = knockoff_filter(Ws, q)
-    return selected, feature_level_df
+    selected = knockoff_filter(Ws, q, verbose=true)
+    
+    # merge selected SNPs with PLINK dataframe
+    grouped_selected = combine(groupby(selected, [:window, :group]),
+        :which_z    => (x -> [x]) => :interacting_Zs,
+        :subgroup_z => (x -> [x]) => :interacting_subgroups,
+        :W          => (x -> [x]) => :W_scores
+    )
+    df = leftjoin(snp_info, grouped_selected, on=[:window, :group])
+    df.is_selected = .!ismissing.(df.interacting_Zs)
+    sort!(df, [:chromosome, :position])
+    
+    return df
 end
-
 
 """
 Fits Lasso with interaction for all SNPs in `data_w`, returns a variable `interaction`
