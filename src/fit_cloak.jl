@@ -16,10 +16,6 @@ for window in windows:
      5.2. get Ws for each of these
   6. perform knockoff filter
 
-# TODO (add back vars that have main effect but no interactions)
-See `paper/step 5 picture.png`: the X8 and X9 vars need to be dealt
-with, currently it's not 
-
 # TODO (lambdas)
 I think the lambda vector only needs to be used in step 5, where we use it to get the Ws
 for different windows, because only there do we need to make sure the SNPs are penalized
@@ -54,6 +50,7 @@ function gwaw_adaptive(
 
         # fit lasso with interaction. Returns a Dict{Int, Vector{Int}}() where
         # interaction[i] is a Vector{Int} containing variables interacting with zi
+        # note: interaction[0] contains the main effect SNPs w/o interaction
         interaction = lasso_with_interaction(data_w, interaction_idx, 
                                              screened_snps, lambdas)
 
@@ -107,6 +104,9 @@ end
 Fits Lasso with interaction for all SNPs in `data_w`, returns a variable `interaction`
 that is a `Dict{Int, Vector{Int}}` where `interaction[i]` contains the snps that 
 are interacting with binary indicator `z[:, i]`. 
+
+SNPs that have main effects but NO interaction with any variables in `z` will be included
+as `interaction[0]`, i.e. the "0th variable" contains the main effect terms
 """
 function lasso_with_interaction(
         data_w::CloakedGroupKnockoff, 
@@ -133,12 +133,13 @@ function lasso_with_interaction(
     # for each Z, find which SNPs are interacting with it
     p1, p2 = size(x, 2), size(xko, 2)
     interaction = Dict{Int, Vector{Int}}()
+    snps_with_interaction_effects = Int[]
     for i in eachindex(interaction_idx)
         # data looks like: X Xko X*z Xko*z X*(1-z) Xko*(1-z) z (1-z)
         offset1 = p1 + p2                        # X Xko
         offset2 = offset1 + p1 * size(z_int, 2)  # X Xko X*z
         offset3 = offset2 + p2 * size(z_int, 2)  # X Xko X*z Xko*z
-        offset4 = offset3 + p1 * size(z_int, 2)  # X Xko X*z Xko*z Xko*(1-z)
+        offset4 = offset3 + p1 * size(z_int, 2)  # X Xko X*z Xko*z X*(1-z)
         offseti = (i - 1) * p1 # offset for current zi
 
         non0_idx1 = findall(!iszero, beta[(offseti + offset1 + 1):(offseti + offset1 + p1)])
@@ -148,7 +149,17 @@ function lasso_with_interaction(
         
         var = interaction_idx[i]
         interaction[var] = union(non0_idx1, non0_idx2, non0_idx3, non0_idx4)
+
+        # keep track of which SNPs have an interaction effect
+        append!(snps_with_interaction_effects, interaction[var])
     end
+
+    # add main effects. 
+    # Note If a variable has main & interaction effects, exclude from main effect
+    non0_idx1 = findall(!iszero, beta[1:p1])
+    non0_idx2 = findall(!iszero, beta[p1+1:p2])
+    main_idx = union(non0_idx1, non0_idx2)
+    interaction[0] = setdiff(main_idx, snps_with_interaction_effects)
 
     return interaction
 end
