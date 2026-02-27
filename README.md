@@ -13,6 +13,6 @@ Pkg.add(url="https://github.com/pmgblz/LocalKnocks")
 
 ## Progress report
 
-- [ ] Make it work
+- [x] Make it work
 - [ ] Make it right
 - [ ] Make it fast
