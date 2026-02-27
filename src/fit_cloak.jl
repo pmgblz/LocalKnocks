@@ -29,6 +29,7 @@ function gwaw_adaptive(
         window_width::Int = 1000, 
         lambdas::Vector{Float64} = estimate_lambdas(data, kappa_lasso=0.6)
     )
+    n = length(data.y)
     windows = div(data.p, window_width)
     nonzero_idx = Int[] # length 2p
     Ws = W_struct[]
@@ -57,25 +58,38 @@ function gwaw_adaptive(
         # run Lasso within each covariate environment
         # See Figure A3 (the 2nd big column) in https://arxiv.org/pdf/2412.02182
         for which_z in interaction_idx
-            # uncloak all the interct vars
-            interacting_snps = interaction[which_z]
-            unswap!(data_w, interacting_snps)
+            if which_z == 0
+                main_effect_snps = interaction[0]
 
-            # subset to males/females and fit lasso
-            zi = data_w.z[:, which_z]
-            for subgroup_z in unique(zi)
-                rows = findall(x -> x == subgroup_z, zi)
-                # E.g. If interacting_snps = [17, 35], then in the first iteration,
-                # W[1] ==> This is W_{17}^{sex=male} and W[2] is W_{35}^{sex=male}
-                W_j = local_env_lasso(data_w, lambdas, rows, interacting_snps)
+                # reveal X/Xko identity, fit lasso, record Ws
+                unswap!(data_w, main_effect_snps)
+                W_j = local_env_lasso(data_w, lambdas, 1:n, main_effect_snps)
+                group = data_w.groups[main_effect_snps]
+                push!(Ws, W_struct(window, which_z, NaN, W_j, group))
 
-                # put things in a struct to remember them
-                group = data_w.groups[interacting_snps]
-                push!(Ws, W_struct(window, which_z, subgroup_z, W_j, group))
+                # once finished, cloak data back
+                unswap!(data_w, main_effect_snps)
+            else 
+                # uncloak all the interct vars
+                interacting_snps = interaction[which_z]
+                unswap!(data_w, interacting_snps)
+
+                # subset to males/females and fit lasso
+                zi = data_w.z[:, which_z]
+                for subgroup_z in unique(zi)
+                    rows = findall(x -> x == subgroup_z, zi)
+                    # E.g. If interacting_snps = [17, 35], then in the first iteration,
+                    # W[1] ==> This is W_{17}^{sex=male} and W[2] is W_{35}^{sex=male}
+                    W_j = local_env_lasso(data_w, lambdas, rows, interacting_snps)
+
+                    # put things in a struct to remember them
+                    group = data_w.groups[interacting_snps]
+                    push!(Ws, W_struct(window, which_z, subgroup_z, W_j, group))
+                end
+
+                # cloak interact vars again
+                unswap!(data_w, interacting_snps)
             end
-
-            # cloak interact vars again
-            unswap!(data_w, interacting_snps)
         end
     end
 
@@ -146,7 +160,7 @@ function lasso_with_interaction(
         non0_idx2 = findall(!iszero, beta[(offseti + offset2 + 1):(offseti + offset2 + p2)])
         non0_idx3 = findall(!iszero, beta[(offseti + offset3 + 1):(offseti + offset3 + p1)])
         non0_idx4 = findall(!iszero, beta[(offseti + offset4 + 1):(offseti + offset4 + p2)])
-        
+
         var = interaction_idx[i]
         interaction[var] = union(non0_idx1, non0_idx2, non0_idx3, non0_idx4)
 
@@ -220,7 +234,7 @@ computes Ws across all environments. Note the Ws here are of length `interacting
 (i.e. we only care about the beta for the interacting SNPs).
 """
 function local_env_lasso(data_w::CloakedGroupKnockoff, lambdas::Vector{T}, 
-        rows::Vector{Int}, interacting_snps::Vector{Int}
+        rows::AbstractVector{Int}, interacting_snps::Vector{Int}
     ) where T
     p1 = size(data_w.x, 2)
     p2 = size(data_w.xko, 2)
