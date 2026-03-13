@@ -252,7 +252,7 @@ function local_env_lasso(data_w::CloakedGroupKnockoff, lambdas::Vector{T},
         Wg[k] = sum(abs, beta[idx]) - sum(abs, beta[idx .+ p1])
     end
     # get group Ws for each interacting SNP
-    W = Wg[groups[interacting_snps]]
+    W = Wg[unique(groups[interacting_snps])]
     return W
 end
 
