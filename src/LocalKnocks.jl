@@ -9,7 +9,7 @@ using ProgressMeter
 using LinearAlgebra
 using DataFrames
 
-export gwaw_adaptive
+export gwas_adaptive
 
 include("struct.jl")
 include("fit.jl")

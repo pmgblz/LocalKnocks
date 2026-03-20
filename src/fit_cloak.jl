@@ -22,7 +22,7 @@ for different windows, because only there do we need to make sure the SNPs are p
 equally across the windows. Lassos in earlier steps are more like screening so they can 
 be penalized in other ways (e.g. cross validation)
 """
-function gwaw_adaptive(
+function gwas_adaptive(
         data::GWASData,
         interaction_idx::Vector{Int}; # only covariates in here are interacting with SNPs
         q = 0.1, # target FDR
