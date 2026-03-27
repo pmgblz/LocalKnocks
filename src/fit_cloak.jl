@@ -55,41 +55,42 @@ function gwas_adaptive(
         interaction = lasso_with_interaction(data_w, interaction_idx, 
                                              screened_snps, lambdas)
 
+        # main effect SNPs
+        main_effect_snps = interaction[0]
+        if length(main_effect_snps) > 0
+            # reveal X/Xko identity, fit lasso, record Ws
+            unswap!(data_w, main_effect_snps)
+            W_j = local_env_lasso(data_w, lambdas, 1:n, main_effect_snps)
+            group = data_w.groups[main_effect_snps]
+            push!(Ws, W_struct(window, 0, NaN, W_j, group)) # which_z = 0 for main effect SNPs
+
+            # once finished, cloak data back
+            unswap!(data_w, main_effect_snps)
+            println("main_effect_snps = $main_effect_snps, W_j = $W_j")
+        end
+
         # run Lasso within each covariate environment
         # See Figure A3 (the 2nd big column) in https://arxiv.org/pdf/2412.02182
         for which_z in interaction_idx
-            if which_z == 0
-                main_effect_snps = interaction[0]
+            # uncloak all the interct vars
+            interacting_snps = interaction[which_z]
+            unswap!(data_w, interacting_snps)
 
-                # reveal X/Xko identity, fit lasso, record Ws
-                unswap!(data_w, main_effect_snps)
-                W_j = local_env_lasso(data_w, lambdas, 1:n, main_effect_snps)
-                group = data_w.groups[main_effect_snps]
-                push!(Ws, W_struct(window, which_z, NaN, W_j, group))
+            # subset to males/females and fit lasso
+            zi = data_w.z[:, which_z]
+            for subgroup_z in unique(zi)
+                rows = findall(x -> x == subgroup_z, zi)
+                # E.g. If interacting_snps = [17, 35], then in the first iteration,
+                # W[1] ==> This is W_{17}^{sex=male} and W[2] is W_{35}^{sex=male}
+                W_j = local_env_lasso(data_w, lambdas, rows, interacting_snps)
 
-                # once finished, cloak data back
-                unswap!(data_w, main_effect_snps)
-            else 
-                # uncloak all the interct vars
-                interacting_snps = interaction[which_z]
-                unswap!(data_w, interacting_snps)
-
-                # subset to males/females and fit lasso
-                zi = data_w.z[:, which_z]
-                for subgroup_z in unique(zi)
-                    rows = findall(x -> x == subgroup_z, zi)
-                    # E.g. If interacting_snps = [17, 35], then in the first iteration,
-                    # W[1] ==> This is W_{17}^{sex=male} and W[2] is W_{35}^{sex=male}
-                    W_j = local_env_lasso(data_w, lambdas, rows, interacting_snps)
-
-                    # put things in a struct to remember them
-                    group = data_w.groups[interacting_snps]
-                    push!(Ws, W_struct(window, which_z, subgroup_z, W_j, group))
-                end
-
-                # cloak interact vars again
-                unswap!(data_w, interacting_snps)
+                # put things in a struct to remember them
+                group = data_w.groups[interacting_snps]
+                push!(Ws, W_struct(window, which_z, subgroup_z, W_j, group))
             end
+
+            # cloak interact vars again
+            unswap!(data_w, interacting_snps)
         end
     end
 
@@ -173,6 +174,18 @@ function lasso_with_interaction(
     non0_idx1 = findall(!iszero, beta[1:p1])
     non0_idx2 = findall(!iszero, beta[p1+1:p2])
     main_idx = union(non0_idx1, non0_idx2)
+
+    # if interacting beta is smaller than 2 * median main effect, 
+    # then it is a main effect SNP
+    median_main_effects = 2 * median(abs.(beta[main_idx]))
+    drop_idx = findall(x -> abs(beta[x]) < median_main_effects, snps_with_interaction_effects)
+    setdiff!(snps_with_interaction_effects, main_idx)
+
+
+
+    main_idx = findall(x -> abs(beta[x]) >= median_main_effects, main_idx)
+    setdiff!(snps_with_interaction_effects, median_main_effects)
+
     interaction[0] = setdiff(main_idx, snps_with_interaction_effects)
 
     return interaction
