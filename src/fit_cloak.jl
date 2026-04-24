@@ -162,31 +162,55 @@ function lasso_with_interaction(
         non0_idx3 = findall(!iszero, beta[(offseti + offset3 + 1):(offseti + offset3 + p1)])
         non0_idx4 = findall(!iszero, beta[(offseti + offset4 + 1):(offseti + offset4 + p2)])
 
+        # find all snps that are interacting with the current variable
         var = interaction_idx[i]
-        interaction[var] = union(non0_idx1, non0_idx2, non0_idx3, non0_idx4)
+        interacting_snps = union(non0_idx1, non0_idx2, non0_idx3, non0_idx4)
+
+        # add all snps in the same group as the interacting snps to the interaction variable
+        groups_with_interaction_effects = unique(data_w.groups[interacting_snps])
+        for group in groups_with_interaction_effects
+            idx = findall(x -> x == group, data_w.groups)
+            if haskey(interaction, var)
+                interaction[var] = union(interaction[var], idx)
+            else
+                interaction[var] = idx
+            end
+        end
 
         # keep track of which SNPs have an interaction effect
         append!(snps_with_interaction_effects, interaction[var])
     end
+    unique!(snps_with_interaction_effects)
+
+    # find groups that have interaction effects
+    groups_with_interaction_effects = unique(data_w.groups[snps_with_interaction_effects])
 
     # add main effects. 
-    # Note If a variable has main & interaction effects, exclude from main effect
+    # Note: if a group has main & interaction effects, we assign it to have interaction effect
     non0_idx1 = findall(!iszero, beta[1:p1])
     non0_idx2 = findall(!iszero, beta[p1+1:p2])
-    main_idx = union(non0_idx1, non0_idx2)
+    snp_with_main_effects = union(non0_idx1, non0_idx2)
+    group_with_main_effects = unique(data_w.groups[snp_with_main_effects])
+    setdiff!(group_with_main_effects, groups_with_interaction_effects)
 
+    # TODO: if a SNP have both main & interaction effect, maybe we should
+    # assign groups to main or interaction effect, whichever is larger. Or base it on median of main effect.
     # if interacting beta is smaller than 2 * median main effect, 
     # then it is a main effect SNP
-    median_main_effects = 2 * median(abs.(beta[main_idx]))
-    drop_idx = findall(x -> abs(beta[x]) < median_main_effects, snps_with_interaction_effects)
-    setdiff!(snps_with_interaction_effects, main_idx)
+    # median_main_effects = 2 * median(abs.(beta[main_idx]))
+    # drop_idx = findall(x -> abs(beta[x]) < median_main_effects, snps_with_interaction_effects)
+    # setdiff!(snps_with_interaction_effects, main_idx)
+    # main_idx = findall(x -> abs(beta[x]) >= median_main_effects, main_idx)
+    # setdiff!(snps_with_interaction_effects, median_main_effects)
 
-
-
-    main_idx = findall(x -> abs(beta[x]) >= median_main_effects, main_idx)
-    setdiff!(snps_with_interaction_effects, median_main_effects)
-
-    interaction[0] = setdiff(main_idx, snps_with_interaction_effects)
+    for group in group_with_main_effects
+        snps = findall(x -> x == group, data_w.groups)
+        if haskey(interaction, 0)
+            interaction[0] = union(interaction[0], snps)
+        else
+            interaction[0] = snps
+        end
+    end
 
     return interaction
 end
