@@ -61,7 +61,7 @@ function gwas_adaptive(
             # reveal X/Xko identity, fit lasso, record Ws
             unswap!(data_w, main_effect_snps)
             W_j = local_env_lasso(data_w, lambdas, 1:n, main_effect_snps)
-            group = data_w.groups[main_effect_snps]
+            group = unique(data_w.groups[main_effect_snps])
             push!(Ws, W_struct(window, 0, NaN, W_j, group)) # which_z = 0 for main effect SNPs
 
             # once finished, cloak data back
@@ -85,7 +85,7 @@ function gwas_adaptive(
                 W_j = local_env_lasso(data_w, lambdas, rows, interacting_snps)
 
                 # put things in a struct to remember them
-                group = data_w.groups[interacting_snps]
+                group = unique(data_w.groups[interacting_snps])
                 push!(Ws, W_struct(window, which_z, subgroup_z, W_j, group))
             end
 

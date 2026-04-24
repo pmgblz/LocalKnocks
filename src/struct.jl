@@ -76,7 +76,7 @@ struct W_struct{T<:AbstractFloat}
 end
 
 """
-A struct to keep track of which group was passes knockoff filter
+A struct to keep track of which group passes knockoff filter
 """
 struct W_selected{T<:AbstractFloat}
     window::Int
@@ -95,7 +95,7 @@ function knockoff_filter(Ws::Vector{LocalKnocks.W_struct}, q::Number; verbose=tr
     for w_s in Ws
         for (i, w_val) in enumerate(w_s.W)
             if w_val >= tau
-                w_selected = W_selected(w_s.window, w_s.which_z, w_s.subgroup_z, w_val,w_s.groups[i])
+                w_selected = W_selected(w_s.window, w_s.which_z, w_s.subgroup_z, w_val, w_s.groups[i])
                 push!(selected, w_selected)
             end
         end
