@@ -168,13 +168,10 @@ function lasso_with_interaction(
 
         # add all snps in the same group as the interacting snps to the interaction variable
         groups_with_interaction_effects = unique(data_w.groups[interacting_snps])
+        interaction[var] = Int[]
         for group in groups_with_interaction_effects
             idx = findall(x -> x == group, data_w.groups)
-            if haskey(interaction, var)
-                interaction[var] = union(interaction[var], idx)
-            else
-                interaction[var] = idx
-            end
+            interaction[var] = union(interaction[var], idx)
         end
 
         # keep track of which SNPs have an interaction effect
@@ -203,13 +200,10 @@ function lasso_with_interaction(
     # main_idx = findall(x -> abs(beta[x]) >= median_main_effects, main_idx)
     # setdiff!(snps_with_interaction_effects, median_main_effects)
 
+    interaction[0] = Int[]
     for group in group_with_main_effects
         snps = findall(x -> x == group, data_w.groups)
-        if haskey(interaction, 0)
-            interaction[0] = union(interaction[0], snps)
-        else
-            interaction[0] = snps
-        end
+        interaction[0] = union(interaction[0], snps)
     end
 
     return interaction
